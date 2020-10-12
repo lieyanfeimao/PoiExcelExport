@@ -1,0 +1,332 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<title>POI-使用JSON实现Excel多级表头导出</title>
+	<meta charset="utf-8">
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="Docker,Docker入门" />
+	<meta name="description" content="POI-使用JSON实现Excel多级表头导出" />
+
+	<link rel="stylesheet" href="css/bootstrap.min.css"/>
+	<link rel="stylesheet" type="text/css" href="css/docs.min.css">
+	<link rel="stylesheet" type="text/css" href="css/shCoreDefault.css">
+	
+	<script src="js/jquery.min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="js/docs.min.js"></script>
+	<script type="text/javascript" src="js/shCore.js"></script>
+
+	<script>
+		$(function(){
+			SyntaxHighlighter.all();//执行代码高亮
+		});
+	</script>
+</head>
+<body>
+	<div class="container">
+		<div class="row">
+			<div class="col-md-3 col-lg-3">
+				<nav class="bs-docs-sidebar hidden-print hidden-xs hidden-sm">
+					<ul class="nav bs-docs-sidenav">
+					  
+						<li>
+						  <a href="#jcef">POI-使用JSON实现Excel多级表头</a>
+						  <ul class="nav">
+							<li><a href="#jcef-sm">代码参考</a></li>
+							<li><a href="#jcef-by">JSON配置详解</a></li>
+							<li><a href="#jcef-cj">分析并设计PoiExcelExport</a></li>
+						  </ul>
+						</li>
+					</ul>
+				</nav>
+			</div>
+			<div class="col-md-9 col-lg-9">
+				<div class="bs-docs-section">
+					<div id="jcef">
+						<h2>POI-使用JSON实现Excel多级表头</h2>
+						<p>
+							领导：“我有件事和你商量下。”我：“什么事？”领导：“客户让我开发四个报表导出，两天时间。”我恐防有诈，道：“模板发我看下。”
+						</p>
+						<p>
+							打开模板一看，从一级表头到四级表头都有。我：“这个……两天做不完。”领导：“能者多劳。”我：“多劳多得。”领导：“你从哪里听的这些乱七八糟的歪理？”
+						</p>
+						<p>
+							做完二级表头的导出，头昏脑涨，突生辞职冲动。因为一旦列位置不对，就得去茫茫码海里找哪里写错了。
+						</p>
+						<p>
+							于是，我绞尽脑汁封装了个工具类。
+						</p>
+						<p>
+							项目地址：
+						</p>
+						<p>
+							github：<a href="https://github.com/lieyanfeimao/PoiExcelExport.git" target="_blank">https://github.com/lieyanfeimao/PoiExcelExport.git</a><br/>
+							码云：<a href="https://gitee.com/edadmin/PoiExcelExport.git" target="_blank">https://gitee.com/edadmin/PoiExcelExport.git</a>
+						</p>
+						<p>
+							注：因为我在项目中使用的是poi-3.7，所以本程序使用的也是poi-3.7，我粗略测试了一下，最新的版本里面已经去掉了很多东西，本程序无法在最新版本的poi下使用，没测试最高能兼容到哪个版本。本程序可直接用于导出，有多种模式和配置，但是不建议用于大数据导出（怎样算大数据？看你服务器有多强）。大数据导出个人觉得应该用POI另一种不消耗内存的模式。所以，您可以参考本程序的设计思路，自行设计用于大数据导出的程序。
+						</p>
+						<p>
+							本项目用于导出的数据格式为List&lt;Map&lt;String,Object&gt;&gt;，您的数据可能是List&lt;Object&gt;，这不支持。请自行编写程序使用反射进行导出。或者，只使用本项目的生成表头功能。本项目创建的初衷便是创建表头，生成Excel只是附带功能
+						</p>
+						
+					</div>
+					
+					
+					<div id="jcef-sm">
+						<h3>代码参考</h3>
+						<pre class="brush:java;toolbar:false">
+						import java.io.IOException;
+						import java.util.ArrayList;
+						import java.util.HashMap;
+						import java.util.List;
+						import java.util.Map;
+
+						import com.xuanyimao.poiexcelexporttool.ExcelExportManager;
+
+						/**  
+						 * http://www.xuanyimao.com
+						 * @author:liuming
+						 * @date: 2020年10月12日
+						 * @version V1.0 
+						 */
+
+						/**
+						 * @Description:
+						 * @author liuming
+						 */
+						public class SimpleTest {
+							public static String json1=&quot;[&quot; + 
+									&quot;    [&quot; + 
+									&quot;        {field:&#39;name&#39;, title: &#39;姓名&#39;, width:10, rowspan: 2, comment:&#39;这是批注&#39;},&quot; + 
+									&quot;        {field:&#39;age&#39;, title: &#39;年龄&#39;, width:10, rowspan: 2},&quot; + 
+									&quot;        {field:&#39;age&#39;, title: &#39;性别&#39;, width:10, rowspan: 2},&quot; + 
+									&quot;        {title: &#39;成绩&#39;, width:10, rowspan: 1,colspan:3}&quot; + 
+									&quot;    ],&quot; + 
+									&quot;    [&quot; + 
+									&quot;        {field:&#39;yw&#39;, title: &#39;语文&#39;, width:10},&quot; + 
+									&quot;        {field:&#39;sx&#39;, title: &#39;数学&#39;, width:10},&quot; + 
+									&quot;        {field:&#39;yy&#39;, title: &#39;英语&#39;, width:10}&quot; + 
+									&quot;    ]&quot; + 
+									&quot;]&quot;;
+							
+							public static void main(String[] args) {
+								List&lt;Map&lt;String,Object&gt;&gt; datas=initData1();
+								ExcelExportManager em=ExcelExportManager.Builder();
+								try {
+									String fileName=em.createExcel(&quot;D:/exceltest&quot;, json1, datas);
+									System.out.println(&quot;生成的excel文件：&quot;+fileName);
+								}
+								catch (IOException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+							}
+							
+							/**
+							 * 初始化数据
+							 * @author:liuming
+							 * @return
+							 */
+							public static List&lt;Map&lt;String,Object&gt;&gt; initData1(){
+								List&lt;Map&lt;String,Object&gt;&gt; list=new ArrayList&lt;Map&lt;String,Object&gt;&gt;();
+								Map&lt;String,Object&gt; map=new HashMap&lt;String, Object&gt;();
+								map.put(&quot;name&quot;, &quot;狗王&quot;);
+								map.put(&quot;age&quot;, 100);
+								map.put(&quot;sex&quot;, &quot;雄性&quot;);
+								map.put(&quot;sx&quot;, 10);
+								map.put(&quot;yy&quot;, 22.5);
+								map.put(&quot;yw&quot;, 998);
+								list.add(map);
+								map.put(&quot;name&quot;, &quot;大狗子&quot;);
+								map.put(&quot;age&quot;, 100);
+								map.put(&quot;sex&quot;, &quot;雄性&quot;);
+								map.put(&quot;sx&quot;, 10);
+								map.put(&quot;yy&quot;, 22.5);
+								map.put(&quot;yw&quot;, 94);
+								list.add(map);
+								map=new HashMap&lt;String, Object&gt;();
+								map.put(&quot;name&quot;, &quot;二狗子&quot;);
+								map.put(&quot;age&quot;, 100);
+								map.put(&quot;sex&quot;, &quot;雄性&quot;);
+								map.put(&quot;sx&quot;, 10);
+								map.put(&quot;yy&quot;, 22.5);
+								map.put(&quot;yw&quot;, 939);
+								list.add(map);
+								map=new HashMap&lt;String, Object&gt;();
+								map.put(&quot;name&quot;, &quot;小狗子&quot;);
+								map.put(&quot;age&quot;, 100);
+								map.put(&quot;sex&quot;, &quot;雌性&quot;);
+								map.put(&quot;sx&quot;, 10);
+								map.put(&quot;yy&quot;, 22.5);
+								map.put(&quot;yw&quot;, 92);
+								list.add(map);
+								map=new HashMap&lt;String, Object&gt;();
+								map.put(&quot;name&quot;, &quot;狗雄&quot;);
+								map.put(&quot;age&quot;, 100);
+								map.put(&quot;sex&quot;, &quot;雄性&quot;);
+								map.put(&quot;sx&quot;, 99);
+								map.put(&quot;yy&quot;, 22.5);
+								map.put(&quot;yw&quot;, 91);
+								list.add(map);
+								
+								return list;
+							}
+						}</pre>
+						<p>
+							看看这个用于导出的JSON数据，是不是想到了easyui的table，亦或是layui的table，亦或是其他的数据表格(广告位招租)？是的，这两种表格的cols配置稍加修改，便可直接用于本导出程序。
+						</p>
+						<p>
+							在这个JSON为王的时代，用JSON封装个创建自定义的任意级表头的工具类实在是再好不过了！如果您曾使用过datagrid或laytable之类的插件做过表格，那就很容易理解了。
+						</p>
+						<p>
+							若在使用过程中发现BUG，请尽管提出，反正我不会改。
+						</p>
+						
+					</div>
+					<div id="jcef-by">
+						<h3>JSON配置详解</h3>
+						<p>
+							下面以狗子的成绩为例，用JSON 配置一个简单的表头
+						</p>
+						<pre class="brush:js;toolbar:false">
+						[
+							[
+								{field:&#39;name&#39;, title: &#39;姓名&#39;, width:10, rowspan: 2, comment:&#39;这是批注&#39;},//似乎批注只在xlsx版本中有效
+								{field:&#39;age&#39;, title: &#39;年龄&#39;, width:10, rowspan: 2},
+								{field:&#39;sex&#39;, title: &#39;性别&#39;, width:10, rowspan: 2},
+								{title: &#39;成绩&#39;, width:10, rowspan: 1,colspan:3}
+							],
+							[
+								{field:&#39;yw&#39;, title: &#39;语文&#39;, width:10},
+								{field:&#39;sx&#39;, title: &#39;数学&#39;, width:10},
+								{field:&#39;yy&#39;, title: &#39;英语&#39;, width:10}
+							]
+						]</pre>
+						<p>
+							<img src="image/poiexcel/1.png" class="img-responsive"/>
+						</p>
+						<p>
+							<br/>
+						</p>
+						<p>
+							<strong>JSON结构详解：</strong>
+						</p>
+						<p>
+							表格配置数据为一个二维数组对象，数组的每个维度代表一行，即array[0][0]为第一行，array[0][1]为第二行
+						</p>
+						<p>
+							二维数组内是一个对象，包含表头和单元格的配置属性
+						</p>
+						<p>
+							<br/>
+						</p>
+						<p>
+							<strong>JSON属性值详解：</strong>
+						</p>
+						<p>
+							field：字段名。对应数据集合(List&lt;Map&lt;String,Object&gt;&gt;)中Map的Key。多级表头中，一列只需设置一次此值。
+						</p>
+						<p>
+							title：列名。Excel表头的列名
+						</p>
+						<p>
+							width：单元格宽度。一般一个汉字的宽度为2
+						</p>
+						<p>
+							colspan：单元格跨多少列，默认为1。横向合并指定个数的单元格
+						</p>
+						<p>
+							rowspan：单元格跨多少行，默认为1。纵向合并指定个数单元格。
+						</p>
+						<p>
+							titleStyle：表头样式。可通过接口设置或通过模板文件设置
+						</p>
+						<p>
+							cellStyle：单元格样式。可通过接口设置或通过模板文件设置
+						</p>
+						<p>
+							comment：批注。有时候设置了不显示，原因不明。
+						</p>
+						<p>
+							<br/>
+						</p>
+						<p>
+							<strong>Excel模板文件：</strong>
+						</p>
+						<p>
+							模板文件可用于按照模板生成Excel，也可以只用于获取单元格样式。
+						</p>
+						<p>
+							如果导出数据的单元格样式来自于模板文件，则需要配置模板对象的templetCellStyles属性，以告诉程序如何处理指定位置的单元格样式
+						</p>
+						<p>
+							<br/>
+						</p>
+						<p>
+							再来个复杂点的5级表头
+						</p>
+						<pre class="brush:js;toolbar:false">
+						[
+							[
+								{title: &#39;狗子名单&#39;, width:10, rowspan: 5},
+								{field:&#39;name&#39;, title: &#39;姓名&#39;, width:10, rowspan: 5, comment:&#39;这是批注&#39;},
+								{field:&#39;age&#39;, title: &#39;年龄上层&#39;, width:10, rowspan: 4},
+								{field:&#39;sex&#39;, title: &#39;性别上层&#39;, width:10, rowspan: 3},
+								{title: &#39;成绩&#39;, width:10, rowspan: 1,colspan:3}
+							],
+							[
+								{field:&#39;yw&#39;, title: &#39;语文1&#39;, width:10},
+								{field:&#39;sx&#39;, title: &#39;数学1&#39;, width:10},
+								{field:&#39;yy&#39;, title: &#39;英语1&#39;, width:10}
+							],
+							[
+								{field:&#39;yw&#39;, title: &#39;语文2&#39;, width:10},
+								{field:&#39;sx&#39;, title: &#39;数学2&#39;, width:10},
+								{field:&#39;yy&#39;, title: &#39;英语2&#39;, width:10}
+							],
+							[
+								{title: &#39;性别&#39;, width:10, rowspan: 2},
+								{field:&#39;yw&#39;, title: &#39;语文3&#39;, width:10},
+								{field:&#39;sx&#39;, title: &#39;数学3&#39;, width:10},
+								{field:&#39;yy&#39;, title: &#39;英语4&#39;, width:10}
+							],
+							[
+								{field:&#39;age&#39;, title: &#39;年龄&#39;, width:10},
+								{field:&#39;yw&#39;, title: &#39;语文&#39;, width:10},
+								{field:&#39;sx&#39;, title: &#39;数学&#39;, width:10},
+								{field:&#39;yy&#39;, title: &#39;英语&#39;, width:10}
+							],
+						]</pre>
+						<p>
+							<img src="image/poiexcel/2.png" class="img-responsive"/>
+						</p>
+						<p>
+							该装的装完了，开始进入正题。分析并写出这个程序。
+						</p>
+						
+					</div>
+					<div id="jcef-cj">
+						<h3>分析并设计PoiExcelExport</h3>
+						<p>
+							略（自己看注释吧，一下写不清楚，写着写着把自己写蒙了，后面有空再写）
+						</p>
+					</div>
+					
+				</div>
+				
+			</div>
+		</div>
+		
+		
+	</div>
+	<footer style="background-color:#ccc;padding-top:10px;">
+		<div class="container">
+			<p>本文档由玄翼猫编写，个人网站：<a href="http://www.xuanyimao.com" target="_blank">http://www.xuanyimao.com</a></p>
+		</div>
+	</footer>
+</body>
+<!-- author:玄翼猫 -->
+</html>
