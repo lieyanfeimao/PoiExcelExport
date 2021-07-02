@@ -184,6 +184,7 @@ public class ExcelExportManager {
 		//以第一个Sheet为模板
 		workbook.setSheetName(0,"model");
 		int sheetIndex=0;
+		int dataIndex=0;
 		while(true){
 			String sheetName=this.sheetName;
 			Sheet sheet=workbook.cloneSheet(0);
@@ -198,16 +199,22 @@ public class ExcelExportManager {
 			//填充表格内容，数据写入完成返回true
 //			boolean flag=addDataToSheet(sheet, datas,startRowIndex);
 			boolean flag=false;
-			if(sheetListener!=null){
-				int result=sheetListener.addDataToSheet(sheet, startRowIndex, maxRow);
-				if(result==-1){
-					flag=addDataToSheet(sheet, datas,startRowIndex);
-				}else if(result==0){
-					flag=true;
-				}
-			}else{
-				flag=addDataToSheet(sheet, datas,startRowIndex);
-			}
+            if(sheetListener!=null){
+                int result=sheetListener.addDataToSheet(sheet, startRowIndex, maxRow);
+                if(result==-1){
+//                    flag=addDataToSheet(sheet, datas,startRowIndex);
+                    dataIndex=addDataToSheet(sheet, datas,startRowIndex,dataIndex);
+                    flag=dataIndex==datas.size();
+//                    System.out.println(dataIndex);
+                }else if(result==0){
+                    flag=true;
+                }
+            }else{
+//                flag=addDataToSheet(sheet, datas,startRowIndex);
+                dataIndex=addDataToSheet(sheet, datas,startRowIndex,dataIndex);
+                flag=dataIndex==datas.size();
+//                System.out.println(dataIndex);
+            }
 			
 			sheetIndex++;
 			if(flag){
@@ -236,21 +243,26 @@ public class ExcelExportManager {
 	public String createExcelByZipModel(String fileName,String zipFileName,List<Map<String,Object>> datas,WorkbookListener workbookListener) throws IOException{
 		int fileIndex=0;
 		String filePath="";
+		int dataIndex=0;
 		while(true){
 			Workbook workbook=initCellStyle();
 			Sheet sheet=workbook.getSheetAt(0);
 			//填充表格内容，数据写入完成返回true
 			boolean flag=false;
 			if(sheetListener!=null){
-				int result=sheetListener.addDataToSheet(sheet, startRowIndex, maxRow);
-				if(result==-1){
-					flag=addDataToSheet(sheet, datas,startRowIndex);
-				}else if(result==0){
-					flag=true;
-				}
-			}else{
-				flag=addDataToSheet(sheet, datas,startRowIndex);
-			}
+                int result=sheetListener.addDataToSheet(sheet, startRowIndex, maxRow);
+                if(result==-1){
+//                    flag=addDataToSheet(sheet, datas,startRowIndex);
+                    dataIndex=addDataToSheet(sheet, datas,startRowIndex,dataIndex);
+                    flag=dataIndex==datas.size();
+                }else if(result==0){
+                    flag=true;
+                }
+            }else{
+//                flag=addDataToSheet(sheet, datas,startRowIndex);
+                dataIndex=addDataToSheet(sheet, datas,startRowIndex,dataIndex);
+                flag=dataIndex==datas.size();
+            }
 			
 			//将文件保存到excel中
 			if(workbookListener!=null){
@@ -403,11 +415,12 @@ public class ExcelExportManager {
 	 * @param sheet sheet对象
 	 * @param datas 数据
 	 * @param rowindex 起始索引
+	 * @param dataIndex 数据(datas参数)起始索引
 	 * @return
 	 */
-	public boolean addDataToSheet(Sheet sheet,List<Map<String,Object>> datas,int rowindex){
+	public int addDataToSheet(Sheet sheet,List<Map<String,Object>> datas,int rowindex,int dataIndex){
 		if(datas!=null && fields!=null){
-			for(int i=0;i<datas.size();){
+			for(int i=dataIndex;i<datas.size();i++){
 //				Row row = sheet.createRow(rowindex);
 				Row row = sheet.getRow(rowindex);
 				if(row==null){
@@ -430,14 +443,16 @@ public class ExcelExportManager {
 						}
 					}
 				}
-				datas.remove(0);
+				//去掉,浪费时间。这是一个愚蠢的写法
+//				datas.remove(0);
+				
 				rowindex++;
-				if(rowindex>=this.maxRow){
-					return false;
-				}
+                if(rowindex>=this.maxRow){
+                    return i+1;
+                }
 			}
 		}
-		return true;
+		return datas.size();
 	}
 	
 	/***
